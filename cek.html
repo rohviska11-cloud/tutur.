@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>tutur. · cek kecocokan model</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Plus+Jakarta+Sans:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: "Plus Jakarta Sans", sans-serif; background: #f4f1ea; color: #334155; margin: 0; padding: 40px clamp(16px, 5vw, 60px); }
+    h1 { font-family: Fraunces, serif; font-weight: 500; color: #0d3b40; margin: 0 0 6px; }
+    p { max-width: 70ch; }
+    button { font: inherit; background: #0d3b40; color: #fff; border: 0; border-radius: 12px; padding: 12px 20px; cursor: pointer; margin: 16px 0; }
+    .sum { display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0 20px; }
+    .sum div { background: #fff; border-radius: 14px; padding: 14px 18px; min-width: 160px; }
+    .sum b { display: block; font-family: Fraunces, serif; font-size: 1.8rem; color: #0d3b40; font-weight: 500; }
+    table { border-collapse: collapse; width: 100%; background: #fff; border-radius: 14px; overflow: hidden; font-size: .85rem; }
+    th, td { padding: 9px 10px; border-bottom: 1px solid #e5e0d4; text-align: left; vertical-align: top; }
+    th { background: #0d3b40; color: #fff; font-weight: 600; }
+    .ok { color: #1f8a83; font-weight: 600; } .no { color: #b4572f; font-weight: 600; }
+    code { font-size: .78rem; color: #64748b; }
+  </style>
+</head>
+<body>
+  <h1>Cek kecocokan Python vs browser</h1>
+  <p>Halaman ini memutar ulang klip dari folder <code>parity/</code> (hasil sel ekspor Colab), menghitung fitur di browser, lalu membandingkannya dengan fitur dan prediksi dari notebook. Folder <code>parity/</code> boleh dihapus setelah dicek.</p>
+  <button id="run">Jalankan pengecekan</button>
+  <div class="sum" id="sum"></div>
+  <table id="tbl"><thead><tr><th>klip</th><th>label asli</th><th>status (py → js)</th><th>severity (py → js)</th><th>selisih |p|</th><th>fitur paling beda</th></tr></thead><tbody></tbody></table>
+  <script>
+  (async () => {
+    const $ = (s) => document.querySelector(s);
+    const worker = new Worker("assets/js/worker.js");
+    const base = new URL("model", location.href).href;
+    let id = 0; const wait = new Map();
+    worker.onmessage = (e) => { const w = wait.get(e.data.id); if (w) { wait.delete(e.data.id); e.data.type === "error" ? w.rej(new Error(e.data.message)) : w.res(e.data); } };
+    const call = (m, tr) => new Promise((res, rej) => { const i = ++id; wait.set(i, { res, rej }); worker.postMessage({ ...m, id: i, base }, tr || []); });
+    const argmax = (a) => a.indexOf(Math.max(...a));
+    $("#run").onclick = async () => {
+      $("#run").disabled = true;
+      const P = await (await fetch("parity/parity.json")).json();
+      const tb = $("#tbl tbody"); tb.innerHTML = "";
+      let agreeS = 0, agreeV = 0, n = 0; const featErr = {};
+      for (const c of P.clips) {
+        const ab = await (await fetch("parity/" + c.file)).arrayBuffer();
+        const buf = await new OfflineAudioContext(1, 1, 16000).decodeAudioData(ab);
+        const s = new Float32Array(buf.getChannelData(0));
+        const r = await call({ type: "analyze", samples: s, sr: 16000 }, [s.buffer]);
+        const pyS = P.classes_status[argmax(c.py_status)], pyV = P.classes_severity[argmax(c.py_severity)];
+        const okS = pyS === r.status.label, okV = pyV === r.severity.label;
+        agreeS += okS; agreeV += okV; n++;
+        const dP = Math.max(...c.py_status.map((v, i) => Math.abs(v - r.status.proba[i])), ...c.py_severity.map((v, i) => Math.abs(v - r.severity.proba[i])));
+        const diffs = Object.entries(c.feats).map(([k, v]) => {
+          const j = r.feats[k];
+          if (v === null && !Number.isFinite(j)) return [k, 0];
+          if (v === null || !Number.isFinite(j)) return [k, Infinity];
+          return [k, Math.abs(v - j) / Math.max(1e-6, Math.abs(v))];
+        });
+        diffs.forEach(([k, d]) => { (featErr[k] = featErr[k] || []).push(d); });
+        diffs.sort((a, b) => b[1] - a[1]);
+        tb.insertAdjacentHTML("beforeend", `<tr><td>${c.file}<br><code>${c.speaker}</code></td><td>${c.label_status}<br><code>${c.label_severity}</code></td>
+          <td class="${okS ? "ok" : "no"}">${pyS} → ${r.status.label}</td><td class="${okV ? "ok" : "no"}">${pyV} → ${r.severity.label}</td>
+          <td>${dP.toFixed(3)}</td><td><code>${diffs.slice(0, 3).map(([k, d]) => `${k}: ${(d * 100).toFixed(2)}%`).join("<br>")}</code></td></tr>`);
+      }
+      const med = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+      const worst = Object.entries(featErr).map(([k, a]) => [k, med(a)]).sort((a, b) => b[1] - a[1]).slice(0, 4);
+      $("#sum").innerHTML = `<div><b>${agreeS}/${n}</b>status sama</div><div><b>${agreeV}/${n}</b>severity sama</div>
+        <div><code>median selisih relatif terbesar</code><br>${worst.map(([k, v]) => `${k}: ${(v * 100).toFixed(2)}%`).join("<br>")}</div>`;
+      $("#run").disabled = false;
+    };
+  })();
+  </script>
+</body>
+</html>

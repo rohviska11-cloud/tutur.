@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>tutur. · Klasifikasi Suara Dysarthria</title>
+  <meta name="description" content="Klasifikasi status bicara dan tingkat keparahan dysarthria dari rekaman suara, berbasis TORGO Database dan Random Forest." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M7 4h18a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H15l-6 5v-5H7a5 5 0 0 1-5-5V9a5 5 0 0 1 5-5z' fill='%230d3b40'/%3E%3Cpath d='M10.5 12v4M16 9v10M21.5 11v6' stroke='%2378d1c0' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="top">
+    <a class="brand" href="#coba" aria-label="tutur, kembali ke atas">
+      <svg class="logo" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+        <path d="M7 4h18a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H15l-6 5v-5H7a5 5 0 0 1-5-5V9a5 5 0 0 1 5-5z" fill="#0d3b40"/>
+        <path class="lb1" d="M10.5 12v4" /><path class="lb2" d="M16 9v10" /><path class="lb3" d="M21.5 11v6" />
+      </svg>
+      <span>tutur<em>.</em></span>
+    </a>
+    <nav>
+      <a href="#coba">Klasifikasi</a>
+      <a href="#petunjuk">Petunjuk</a>
+      <a href="#torgo">TORGO</a>
+      <a href="#metode">Metode</a>
+      <a href="#bacaan">Bacaan</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ HERO + ALAT ============ -->
+    <section class="hero" id="coba">
+      <div class="hero-bg" aria-hidden="true">
+        <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span>
+      </div>
+
+      <div class="hero-copy reveal">
+        <p class="kicker">Klasifikasi suara dysarthria · TORGO</p>
+        <h1>Kenali pola bicara <em>melalui</em> suara.</h1>
+        <p class="lede">Rekam atau unggah suara berupa kata maupun kalimat pendek. Sistem akan mengklasifikasikan status bicara beserta tingkat keparahannya.</p>
+
+        <div class="guide" id="petunjuk">
+          <p class="guide-title">Petunjuk penggunaan</p>
+          <ol>
+            <li><b>1</b><span>Pilih <em>Rekam langsung</em> atau <em>Unggah file</em>.</span></li>
+            <li><b>2</b><span>Ucapkan kata atau kalimat berbahasa Inggris selama 1–5 detik.</span></li>
+            <li><b>3</b><span>Tekan <em>Klasifikasikan</em>, lalu baca hasilnya.</span></li>
+          </ol>
+          <p class="guide-tip">Gunakan ruangan yang tenang dan jarak mikrofon sekitar 20 cm. Model dilatih dengan ucapan berbahasa Inggris.</p>
+        </div>
+      </div>
+
+      <div class="studio reveal" id="studio">
+        <div class="tabs" role="tablist">
+          <button class="tab active" role="tab" aria-selected="true" data-tab="rekam">Rekam langsung</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="unggah">Unggah file</button>
+          <span class="tab-ink" aria-hidden="true"></span>
+        </div>
+
+        <div class="panel" data-panel="rekam">
+          <div class="prompt">
+            <span>Contoh ucapan</span>
+            <strong id="promptWord">"The quick brown fox"</strong>
+            <button class="ghost tiny" id="shuffle" type="button" title="ganti contoh">ganti</button>
+          </div>
+          <div class="mic-wrap">
+            <canvas id="live" width="640" height="160" aria-hidden="true"></canvas>
+            <button class="mic" id="micBtn" type="button" aria-label="Mulai merekam">
+              <span class="ring r1"></span><span class="ring r2"></span>
+              <svg viewBox="0 0 24 24" class="ico-mic"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+              <svg viewBox="0 0 24 24" class="ico-stop"><rect x="6" y="6" width="12" height="12" rx="3"/></svg>
+            </button>
+          </div>
+          <p class="mic-hint" id="micHint">Tekan tombol untuk mulai merekam, tekan sekali lagi untuk berhenti. Maksimal 10 detik.</p>
+          <p class="timer" id="timer">00.0 s</p>
+        </div>
+
+        <div class="panel hidden" data-panel="unggah">
+          <label class="drop" id="drop">
+            <input type="file" id="fileInput" accept="audio/*,.wav,.mp3,.m4a,.ogg,.webm,.flac" />
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 7 8h3v6h4V8h3l-5-5Zm-7 14v2h14v-2H5Z"/></svg>
+            <b>Seret file suara ke area ini</b>
+            <span>atau klik untuk memilih · wav, mp3, m4a, ogg, flac</span>
+          </label>
+        </div>
+
+        <div class="clip hidden" id="clip">
+          <canvas id="clipWave" width="640" height="90" aria-hidden="true"></canvas>
+          <div class="clip-row">
+            <button class="play" id="playBtn" type="button" aria-label="Putar">
+              <svg viewBox="0 0 24 24" class="ico-play"><path d="M8 5v14l11-7z"/></svg>
+              <svg viewBox="0 0 24 24" class="ico-pause"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+            </button>
+            <div class="clip-meta"><b id="clipName">rekaman</b><span id="clipInfo">-</span></div>
+            <button class="ghost tiny" id="clearBtn" type="button">hapus</button>
+          </div>
+          <audio id="player" preload="auto"></audio>
+        </div>
+
+        <button class="cta" id="analyzeBtn" type="button" disabled>
+          <span class="cta-label">Klasifikasikan</span>
+          <span class="cta-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        </button>
+        <p class="note" id="studioNote">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10l-6 6Z"/></svg>
+          File dan rekaman Anda aman, diproses langsung di perangkat dan tidak disimpan.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============ HASIL ============ -->
+    <section class="results hidden" id="hasil" aria-live="polite">
+      <div class="section-head">
+        <p class="kicker">Hasil klasifikasi</p>
+        <h2 id="resultTitle">Hasil klasifikasi suara.</h2>
+      </div>
+      <div class="result-grid">
+        <article class="rcard status-card">
+          <header><span class="chip">Model 1</span><h3>Status bicara</h3></header>
+          <div class="gauge">
+            <svg viewBox="0 0 200 200">
+              <circle class="g-track" cx="100" cy="100" r="82" />
+              <circle class="g-fill" id="gFill" cx="100" cy="100" r="82" />
+            </svg>
+            <div class="g-center"><b id="gPct">0%</b><span>probabilitas dysarthria</span></div>
+          </div>
+          <p class="verdict" id="statusVerdict">-</p>
+          <div class="split-bar"><i id="sbHealthy"></i><i id="sbDys"></i></div>
+          <div class="split-legend"><span>sehat <b id="pHealthy">-</b></span><span>dysarthria <b id="pDys">-</b></span></div>
+        </article>
+
+        <article class="rcard sev-card">
+          <header><span class="chip">Model 2</span><h3>Tingkat keparahan</h3></header>
+          <ol class="ladder" id="ladder"></ol>
+          <p class="verdict" id="sevVerdict">-</p>
+          <p class="small" id="sevNote"></p>
+        </article>
+
+        <article class="rcard feat-card">
+          <header><span class="chip soft">Ringkasan</span><h3>Ciri akustik</h3></header>
+          <dl class="feats" id="featList"></dl>
+          <p class="small">Nilai di atas merupakan bagian dari fitur model, bukan ukuran klinis. Nada dan getaran paling stabil diukur pada vokal panjang.</p>
+        </article>
+      </div>
+      <p class="disclaimer">Hasil ini merupakan keluaran model penelitian dan tidak menggantikan diagnosis. Untuk pemeriksaan, silakan berkonsultasi dengan dokter atau terapis wicara.</p>
+    </section>
+
+    <!-- ============ TORGO + KELAS ============ -->
+    <section class="torgo" id="torgo">
+      <div class="torgo-intro reveal">
+        <p class="kicker">Sumber data</p>
+        <h2>Apa itu TORGO?</h2>
+        <p>TORGO Database adalah kumpulan rekaman suara dari University of Toronto. Data ini berisi ucapan penutur dengan dysarthria akibat cerebral palsy atau ALS, serta penutur tanpa gangguan bicara sebagai pembanding. Seluruh penutur membaca kata, kalimat, dan bunyi yang sama sehingga perbedaannya dapat dipelajari.</p>
+        <p><b>Dysarthria</b> adalah gangguan bicara yang terjadi karena otot-otot bicara melemah atau sulit dikendalikan akibat gangguan saraf. Ucapan dapat terdengar pelan, sengau, terputus-putus, atau kurang jelas, sedangkan kemampuan berpikir dan memahami bahasa tetap utuh.</p>
+      </div>
+      <div class="classes">
+        <article class="ccard reveal">
+          <h3>Model 1 · Status bicara</h3>
+          <div class="pair">
+            <div><span class="dot ok"></span><b>Sehat</b><p>Pola bicara menyerupai penutur tanpa gangguan.</p></div>
+            <div><span class="dot warn"></span><b>Dysarthria</b><p>Pola bicara menyerupai penutur dengan dysarthria.</p></div>
+          </div>
+        </article>
+        <article class="ccard reveal">
+          <h3>Model 2 · Tingkat keparahan</h3>
+          <ul class="scale">
+            <li><i style="--l:1"></i><b>Tipikal</b><span>tidak ada gangguan</span></li>
+            <li><i style="--l:2"></i><b>Ringan</b><span>sedikit kurang jelas</span></li>
+            <li><i style="--l:3"></i><b>Sedang</b><span>sering sulit dipahami</span></li>
+            <li><i style="--l:4"></i><b>Berat</b><span>sebagian besar sulit dipahami</span></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- ============ METODE ============ -->
+    <section class="process" id="metode">
+      <div class="section-head reveal">
+        <p class="kicker">Metode penelitian</p>
+        <h2>Tahapan klasifikasi suara.</h2>
+      </div>
+      <div class="flow">
+        <div class="flow-line" aria-hidden="true"><span></span></div>
+        <div class="fstep reveal">
+          <div class="ficon"><svg viewBox="0 0 24 24"><path d="M3 12h2l2-5 3 10 3-8 2 3h6"/></svg></div>
+          <h3>Praproses</h3>
+          <p>Audio diubah menjadi satu kanal, disamakan pada 16 kHz, dihilangkan DC offset-nya, lalu dinormalisasi amplitudonya. Jeda tidak dipotong karena merupakan informasi klinis.</p>
+        </div>
+        <div class="fstep reveal">
+          <div class="ficon"><svg viewBox="0 0 24 24"><path d="M4 18V9M9 18V5M14 18v-7M19 18V8"/></svg></div>
+          <h3>Ekstraksi fitur</h3>
+          <p>Dihitung 52 statistik MFCC (rata-rata, simpangan baku, minimum, maksimum dari 13 koefisien) serta 14 fitur akustik: F0, jitter, shimmer, HNR, ZCR, energi RMS, dan spectral centroid.</p>
+        </div>
+        <div class="fstep reveal">
+          <div class="ficon"><svg viewBox="0 0 24 24"><path d="M12 3 6 11h3l-4 6h5v4h4v-4h5l-4-6h3z"/></svg></div>
+          <h3>Klasifikasi Random Forest</h3>
+          <p>Fitur diimputasi median dan distandardisasi, kemudian dinilai oleh 300 pohon keputusan. Setiap pohon memberikan suara terhadap satu kelas.</p>
+        </div>
+        <div class="fstep reveal">
+          <div class="ficon"><svg viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></svg></div>
+          <h3>Hasil prediksi</h3>
+          <p>Proporsi suara dari seluruh pohon menjadi probabilitas setiap kelas. Kelas dengan probabilitas tertinggi ditetapkan sebagai hasil.</p>
+        </div>
+      </div>
+
+      <div class="method reveal">
+        <div class="method-intro">
+          <div>
+            <h3>Mengapa Random Forest?</h3>
+            <p>Random Forest menggabungkan banyak pohon keputusan yang masing-masing dilatih pada sampel data dan subset fitur yang berbeda. Metode ini dibandingkan dengan KNN, SVM, DTW-KNN, CNN, dan representasi ECAPA-TDNN, lalu dipilih karena memberikan Macro F1 tertinggi pada kedua skenario.</p>
+          </div>
+          <ul class="perks">
+            <li><b>Tahan overfitting</b><span>Keputusan diambil dari banyak pohon, bukan satu pohon tunggal.</span></li>
+            <li><b>Fleksibel</b><span>Mampu menangani fitur dengan skala dan satuan yang berbeda.</span></li>
+            <li><b>Berbasis probabilitas</b><span>Setiap kelas memperoleh nilai keyakinan.</span></li>
+          </ul>
+        </div>
+
+        <div class="scen-grid">
+          <article class="scen">
+            <header><span class="chip">Skenario 1</span><h4>Status bicara</h4></header>
+            <dl>
+              <div><dt>Fitur</dt><dd>MFCC-Statistik (52)</dd></div>
+              <div><dt>Pengujian</dt><dd>Hold-out berbasis penutur</dd></div>
+              <div><dt>Kelas</dt><dd>healthy, dysarthria</dd></div>
+              <div><dt>Hasil uji</dt><dd>Akurasi 69,4% · Macro F1 0,68</dd></div>
+            </dl>
+          </article>
+          <article class="scen">
+            <header><span class="chip">Skenario 2</span><h4>Tingkat keparahan</h4></header>
+            <dl>
+              <div><dt>Fitur</dt><dd>MFCC + Akustik (66)</dd></div>
+              <div><dt>Pengujian</dt><dd>Leave-One-Speaker-Out (15 fold)</dd></div>
+              <div><dt>Kelas</dt><dd>typical sampai severe</dd></div>
+              <div><dt>Hasil uji</dt><dd>Akurasi 47,9% · Macro F1 0,31</dd></div>
+            </dl>
+          </article>
+        </div>
+
+        <div class="shared">
+          <span class="shared-label">Pengaturan model (sama untuk kedua skenario)</span>
+          <ul>
+            <li><b>300</b> pohon keputusan</li>
+            <li><b>Bebas</b> kedalaman pohon</li>
+            <li><b>5</b> sampel minimum per daun</li>
+            <li><b>Balanced</b> bobot kelas per sampel</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ KINERJA ============ -->
+    <section class="honest">
+      <div class="honest-card reveal">
+        <div>
+          <p class="kicker">Kinerja model</p>
+          <h2>Seberapa akurat?</h2>
+          <p>Kedua model diuji menggunakan penutur yang suaranya <em>tidak</em> digunakan saat pelatihan. Model status bicara menunjukkan hasil yang cukup baik, sedangkan model tingkat keparahan masih perlu dikembangkan lebih lanjut.</p>
+        </div>
+        <div class="meters">
+          <div class="meter" data-val="69.4">
+            <span class="m-label">Status bicara</span>
+            <div class="m-bar"><i></i></div>
+            <span class="m-val">69%<small> akurasi</small></span>
+            <span class="m-sub">presisi 76% · Macro F1 0,68</span>
+          </div>
+          <div class="meter" data-val="47.9">
+            <span class="m-label">Tingkat keparahan</span>
+            <div class="m-bar"><i></i><b class="chance" style="--c:25%"></b></div>
+            <span class="m-val">48%<small> akurasi</small></span>
+            <span class="m-sub">tebakan acak 25% · selisih maksimal satu tingkat 78%</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ POJOK BACAAN ============ -->
+    <section class="reading" id="bacaan">
+      <div class="section-head reveal">
+        <p class="kicker">Pojok bacaan</p>
+        <h2>Mengenal dysarthria lebih jauh.</h2>
+      </div>
+      <div class="read-grid">
+        <article class="rcol reveal">
+          <span class="rnum">01</span>
+          <h3>Ciri-ciri</h3>
+          <ul>
+            <li>Ucapan pelan, cadel, atau bergumam</li>
+            <li>Suara serak, sengau, atau terlalu pelan</li>
+            <li>Irama dan nada bicara datar atau tidak teratur</li>
+            <li>Kesulitan menggerakkan lidah, bibir, dan rahang</li>
+          </ul>
+        </article>
+        <article class="rcol reveal">
+          <span class="rnum">02</span>
+          <h3>Penyebab</h3>
+          <ul>
+            <li>Stroke dan cedera kepala</li>
+            <li>Cerebral palsy</li>
+            <li>Parkinson, ALS, dan multiple sclerosis</li>
+            <li>Efek samping obat tertentu</li>
+          </ul>
+        </article>
+        <article class="rcol reveal">
+          <span class="rnum">03</span>
+          <h3>Penanganan</h3>
+          <ul>
+            <li>Terapi wicara bersama terapis</li>
+            <li>Latihan pernapasan dan otot bicara</li>
+            <li>Strategi komunikasi untuk keluarga</li>
+            <li>Alat bantu komunikasi bila diperlukan</li>
+          </ul>
+        </article>
+      </div>
+      <div class="ref-wrap">
+        <div class="ref-group reveal">
+          <h3>Artikel &amp; panduan</h3>
+          <ul class="links">
+            <li><a href="https://www.alodokter.com/disartria" target="_blank" rel="noopener"><span class="tag">ID</span><span class="ref-txt"><b>Disartria: gejala, penyebab, dan pengobatan</b><small>Alodokter</small></span></a></li>
+            <li><a href="https://www.nhs.uk/conditions/dysarthria/" target="_blank" rel="noopener"><span class="tag">EN</span><span class="ref-txt"><b>Dysarthria (difficulty speaking)</b><small>NHS, Inggris</small></span></a></li>
+            <li><a href="https://www.asha.org/practice-portal/clinical-topics/dysarthria-in-adults/" target="_blank" rel="noopener"><span class="tag">EN</span><span class="ref-txt"><b>Dysarthria in Adults</b><small>American Speech-Language-Hearing Association</small></span></a></li>
+          </ul>
+        </div>
+        <div class="ref-group reveal">
+          <h3>Paper ilmiah</h3>
+          <ul class="links">
+            <li><a href="https://pubmed.ncbi.nlm.nih.gov/28121021/" target="_blank" rel="noopener"><span class="tag">2017</span><span class="ref-txt"><b>Interventions for dysarthria due to stroke and other adult-acquired, non-progressive brain injury</b><small>Mitchell dkk. · Cochrane Database of Systematic Reviews</small></span></a></li>
+            <li><a href="https://doi.org/10.1007/s10579-011-9145-0" target="_blank" rel="noopener"><span class="tag">2012</span><span class="ref-txt"><b>The TORGO database of acoustic and articulatory speech from speakers with dysarthria</b><small>Rudzicz, Namasivayam &amp; Wolff · Language Resources and Evaluation</small></span></a></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p><b>tutur.</b> Penelitian klasifikasi suara dysarthria. Data: TORGO Database (Rudzicz dkk., University of Toronto).</p>
+    <p class="muted">Random Forest · MFCC-Statistik (52) untuk status bicara · MFCC + Akustik (66) untuk tingkat keparahan.</p>
+  </footer>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
